@@ -5,22 +5,11 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node --import ./instrumentation.js server.js",
-    "dev": "node --watch --import ./instrumentation.js server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
-    "@opentelemetry/exporter-logs-otlp-http": "^0.218.0",
-    "@opentelemetry/exporter-metrics-otlp-http": "^0.218.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
-    "@opentelemetry/sdk-logs": "^0.218.0",
-    "@opentelemetry/sdk-metrics": "^2.7.1",
-    "@opentelemetry/sdk-node": "^0.218.0",
-    "@opentelemetry/winston-transport": "^0.28.0",
     "bcrypt": "^5.1.0",
     "body-parser": "^1.20.1",
     "cors": "^2.8.5",
@@ -30,7 +19,6 @@
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^6.9.0",
     "nodemailer": "^6.9.1",
-    "validator": "^13.7.0",
-    "winston": "^3.19.0"
+    "validator": "^13.7.0"
   }
 }

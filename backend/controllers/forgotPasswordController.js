@@ -3,7 +3,6 @@ import { createTransport } from "nodemailer"
 import crypto from "crypto"
 import bcrypt from "bcrypt"
 import dotenv from "dotenv"
-import logger from "../utils/logger.js";
 dotenv.config()
 
 // Route to handle "forgot password" request
@@ -43,9 +42,9 @@ const forgotPassword = async (req, res) => {
 
     await transporter.sendMail(mailOptions, function (error, info) {
         if (error) {
-            logger.error("Failed to send password reset email", { error: error.message, to: email });
+            console.log(error);
         } else {
-            logger.info("Password reset email sent", { to: email, response: info.response });
+            console.log('Email sent: ' + info.response);
         }
     });
     
@@ -57,7 +56,7 @@ const resetPassword = async (req, res) => {
     const { token, password } = req.body;
     
     // Verify reset token
-    logger.debug("Password reset token received", { token });
+    console.log("token: ", token);
     const user = await userModel.findOne({ resetToken:token });
     if (!user) {
       return res.status(400).json({ message: 'Invalid token' });
