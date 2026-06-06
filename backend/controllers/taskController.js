@@ -2,6 +2,7 @@ import taskModel from "../models/taskModel.js";
 import userModel from "../models/userModel.js";
 import { createTransport } from 'nodemailer';
 import dotenv from "dotenv";
+import logger from "../utils/logger.js";
 dotenv.config();
 const sendMail = (email, subject, title, description) => {
     var transporter = createTransport({
@@ -21,9 +22,9 @@ const sendMail = (email, subject, title, description) => {
 
     transporter.sendMail(mailOptions, function (error, info) {
         if (error) {
-            console.log(error);
+            logger.error("Failed to send task email", { error: error.message, to: email });
         } else {
-            console.log('Email sent: ' + info.response);
+            logger.info("Task email sent", { to: email, response: info.response });
         }
     });
 }
@@ -46,7 +47,7 @@ const addTask = async (req, res) => {
 }
 const removeTask = (req, res) => {
     const { id } = req.body;
-    console.log("id: ", id);
+    logger.debug("removeTask called", { taskId: id });
     taskModel.findByIdAndDelete(id)
         .then(() => res.status(200).json({ message: "Task deleted successfully" }))
         .catch((error) => res.status(501).json({ message: error.message }))

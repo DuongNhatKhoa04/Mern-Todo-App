@@ -3,6 +3,8 @@ import mongoose from "mongoose"
 import cors from "cors"
 import dotenv from "dotenv"
 
+import logger from "./utils/logger.js"
+import httpLogger from "./middleware/httpLogger.js"
 import userRouter from "./routes/userRoute.js"
 import taskRouter from "./routes/taskRoute.js"
 import forgotPasswordRouter from "./routes/forgotPassword.js"
@@ -16,15 +18,16 @@ mongoose.set('strictQuery', true);
 //middlewares
 app.use(express.json())
 app.use(cors())
+app.use(httpLogger)
 
 //db config
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
 }, (err) => {
     if (err) {
-        console.log(err)
+        logger.error("MongoDB connection failed", { error: err.message })
     } else {
-        console.log("DB Connected")
+        logger.info("MongoDB connected")
     }
 })
 
@@ -34,4 +37,4 @@ app.use("/api/task", taskRouter)
 app.use("/api/forgotPassword", forgotPasswordRouter)
 
 //listen
-app.listen(port, () => console.log(`Listening on localhost:${port}`))
+app.listen(port, () => logger.info(`Server listening on port ${port}`))
