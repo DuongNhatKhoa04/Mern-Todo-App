@@ -1,0 +1,77 @@
+---
+# roles/base/tasks/main.yml
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - git
+      - vim
+      - htop
+      - unzip
+      - software-properties-common
+      - python3-pip
+    state: present
+
+- name: Set timezone to Asia/Ho_Chi_Minh
+  community.general.timezone:
+    name: Asia/Ho_Chi_Minh
+
+# Create swap file for Jenkins
+- name: Check if swap already exists
+  ansible.builtin.command: swapon --show
+  register: swap_status
+  changed_when: false
+
+- name: Create 1GB swap file (dự phòng)
+  ansible.builtin.command: fallocate -l 1G /swapfile
+  when: swap_status.stdout == ""
+
+- name: Set swap file permissions
+  ansible.builtin.file:
+    path: /swapfile
+    mode: "0600"
+  when: swap_status.stdout == ""
+
+- name: Format swap
+  ansible.builtin.command: mkswap /swapfile
+  when: swap_status.stdout == ""
+
+- name: Enable swap
+  ansible.builtin.command: swapon /swapfile
+  when: swap_status.stdout == ""
+
+- name: Persist swap in fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "/swapfile swap swap defaults 0 0"
+    state: present
+
+- name: Set swappiness to 10
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "10"
+    state: present
+    sysctl_set: true
+
+- name: Create app directory
+  ansible.builtin.file:
+    path: /opt/capstone
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
