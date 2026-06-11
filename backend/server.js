@@ -17,6 +17,14 @@ mongoose.set('strictQuery', true);
 app.use(express.json())
 app.use(cors())
 
+app.get("/health", (req, res) => {
+    const databaseReady = mongoose.connection.readyState === 1
+    res.status(databaseReady ? 200 : 503).json({
+        status: databaseReady ? "ok" : "degraded",
+        database: databaseReady ? "connected" : "disconnected"
+    })
+})
+
 //db config
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,

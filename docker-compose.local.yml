@@ -1,0 +1,178 @@
+name: mern-todo-local
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: mern-frontend-local
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - mern-local
+
+  backend:
+    build:
+      context: ./backend
+    container_name: mern-backend-local
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-local-mongo-password}@mongo:27017/${MONGO_DATABASE:-todo}?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-local-jwt-secret-change-me}
+      GMAIL_USERNAME: ${GMAIL_USERNAME:-}
+      GMAIL_PASSWORD: ${GMAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - mern-local
+
+  mongo:
+    image: mongo:7.0
+    container_name: mern-mongo-local
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-local-mongo-password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-todo}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data-local:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - mern-local
+
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.40.0
+    container_name: mongodb-exporter-local
+    restart: unless-stopped
+    command: ["--collect-all", "--compatible-mode"]
+    environment:
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-local-mongo-password}@mongo:27017/admin
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - mern-local
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    container_name: prometheus-local
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data-local:/prometheus
+    networks:
+      - mern-local
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.27.0
+    container_name: blackbox-exporter-local
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    volumes:
+      - ./monitoring/blackbox/config.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - mern-local
+
+  grafana:
+    image: grafana/grafana:12.0.1
+    container_name: grafana-local
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-local-grafana-password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data-local:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - mern-local
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: node-exporter-local
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro
+    networks:
+      - mern-local
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: cadvisor-local
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - mern-local
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-home-local:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - mern-local
+
+networks:
+  mern-local:
+    name: mern-network-local
+
+volumes:
+  mongo-data-local:
+    name: mongo-data-local
+  prometheus-data-local:
+    name: prometheus-data-local
+  grafana-data-local:
+    name: grafana-data-local
+  jenkins-home-local:
+    name: jenkins-home-local
