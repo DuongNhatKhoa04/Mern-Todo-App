@@ -1,21 +1,12 @@
 name: CD — Deploy to EC2
 
-# Triển khai tự động lên EC2, SONG SONG với Jenkins (không trùng trigger).
-# - Jenkins: kích hoạt khi push nhánh release/production + commit [tag]production.
-# - GitHub Actions (file này): kích hoạt khi push git TAG 'production', hoặc chạy tay.
-#
-# Yêu cầu cấu hình trong repo (Settings → Secrets/Variables → Actions):
-#   Secrets:   EC2_HOST, EC2_SSH_PRIVATE_KEY
-#   Variables: EC2_USER (mặc định github), DEPLOY_PATH (mặc định /home/Mern-Todo-App),
-#              ENV_FILE (mặc định /home/secrets/.env)
-# EC2 phải có sẵn repo tại DEPLOY_PATH và file .env tại ENV_FILE
-# (xem .claude/docs/production-ec2.md).
-
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "production"
+  # Chạy SAU khi CI hoàn tất trên release/production (build phải xong mới deploy).
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [release/production]
 
 concurrency:
   group: cd-ec2
@@ -26,8 +17,16 @@ jobs:
     name: Build & deploy on EC2
     runs-on: ubuntu-latest
     environment: production
+    # Deploy khi: chạy tay, HOẶC CI vừa pass trên đúng commit [tag]production.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_commit.message == '[tag]production')
     steps:
       - uses: actions/checkout@v4
+        with:
+          # workflow_run: github.sha trỏ nhánh mặc định, nên checkout đúng commit của CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Resolve RELEASE_TAG
         id: tag
@@ -50,7 +49,7 @@ jobs:
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/Mern-Todo-App' }}
           ENV_FILE: ${{ vars.ENV_FILE || '/home/secrets/.env' }}
           RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
-          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           ssh -i ~/.ssh/id_deploy "${EC2_USER}@${EC2_HOST}" \
             "DEPLOY_PATH='${DEPLOY_PATH}' \
