@@ -51,6 +51,33 @@ mta-backend:production
 
 Messages containing prefixes, suffixes, spaces, or extra lines are rejected.
 
+## Production on EC2
+
+One Ubuntu 24.04 EC2 runs the 3 lifecycle stacks joined by an external
+`mern-network`. Images are built on the box — no registry. First bring-up:
+
+1. Install Docker, Nginx and Certbot on the host (handled by Ansible — see
+   [.claude/docs/infrastructure.md](.claude/docs/infrastructure.md)).
+2. Lay out directories and secrets (see **EC2 Directory** below).
+3. Create the shared network and start the set-and-forget stacks:
+
+   ```bash
+   docker network create mern-network
+   docker compose -f docker-compose.monitoring.yml up -d
+   docker compose -f docker-compose.jenkins.yml up -d
+   ```
+
+4. Configure Jenkins (see **Jenkins Setup**). The App stack is then deployed by
+   CI/CD via `deploy/deploy.sh`, or manually:
+
+   ```bash
+   cd /home/Mern-Todo-App
+   RELEASE_TAG=production docker compose -f docker-compose.yml \
+     --env-file /home/secrets/.env up -d --build
+   ```
+
+5. Put Nginx + TLS in front of the containers (see **Nginx + TLS**).
+
 ## EC2 Directory
 
 Source (git repo) and the secrets `.env` live in **separate** directories:
@@ -142,11 +169,66 @@ git commit -m "[tag]production"
 git push origin release/production
 ```
 
-## Nginx
+## Nginx + TLS
 
-Host Nginx proxies:
+Host Nginx (installed via Ansible) is the single TLS edge in front of the
+containers. Two example configs ship in `deploy/nginx/`:
 
-- `/` to `127.0.0.1:3000`
-- `/api/` to `127.0.0.1:8000/api/`
+- `mern-todo.conf.example` — minimal single-domain, App only (`/` → `3000`,
+  `/api/` → `8000`). Fine for a quick HTTP-only bring-up.
+- `nhatkhoa.name.vn.conf.example` — full production: 4 subdomains on one SAN
+  cert over HTTPS — App, `jenkins.`, `grafana.`, `prometheus.`.
 
-Use `deploy/nginx/mern-todo.conf.example`, then configure Certbot on the host.
+### Expose only 80/443/22
+
+For Nginx to be the only TLS edge, every container must bind `127.0.0.1` and the
+public ports must be closed in the Security Group:
+
+- App already binds `127.0.0.1:3000 / 8000`.
+- Bind Jenkins/Grafana/Prometheus to `127.0.0.1:8080 / 3001 / 9090`.
+- In the SG keep only `80, 443, 22` — close `8080/3001/9090`, otherwise
+  `http://IP:8080` bypasses TLS and Nginx entirely.
+
+### Install the config
+
+```bash
+sudo cp deploy/nginx/nhatkhoa.name.vn.conf.example \
+        /etc/nginx/sites-available/nhatkhoa.name.vn
+sudo ln -s /etc/nginx/sites-available/nhatkhoa.name.vn /etc/nginx/sites-enabled/
+```
+
+### Certbot bootstrap order (important)
+
+The HTTPS config has `listen 443 ssl` blocks whose `ssl_certificate` lines are
+commented out, because the cert does not exist yet. nginx refuses any
+`listen ... ssl` block with no cert, so `nginx -t` fails — and `certbot --nginx`
+(which runs `nginx -t` first) aborts. Break the deadlock by serving the ACME
+challenge over HTTP first, then enabling 443:
+
+1. Enable an HTTP-only config first (`mern-todo.conf.example`, or a temporary
+   server block serving `/.well-known/acme-challenge/`), then
+   `sudo nginx -t && sudo systemctl reload nginx`.
+2. Obtain one SAN cert for all four names:
+
+   ```bash
+   sudo certbot certonly --webroot -w /var/www/html \
+     -d nhatkhoa.name.vn -d jenkins.nhatkhoa.name.vn \
+     -d grafana.nhatkhoa.name.vn -d prometheus.nhatkhoa.name.vn
+   ```
+
+3. Enable the full `nhatkhoa.name.vn` config and **uncomment the 8
+   `ssl_certificate` / `ssl_certificate_key` lines** (2 per 443 block).
+4. `sudo nginx -t && sudo systemctl reload nginx`.
+
+### Per-subdomain auth
+
+App, Jenkins and Grafana each have their own login. **Prometheus has none** — the
+config adds Nginx Basic Auth for it:
+
+```bash
+sudo apt-get install -y apache2-utils
+sudo htpasswd -c /etc/nginx/.htpasswd-prometheus admin
+```
+
+To drop Prometheus auth, remove the two `auth_basic*` lines in its server block
+(or stop exposing the `prometheus.` subdomain and reach it only through Grafana).
