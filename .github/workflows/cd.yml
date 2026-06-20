@@ -2,7 +2,6 @@ name: CD — Deploy to EC2
 
 on:
   workflow_dispatch:
-  # Chạy SAU khi CI hoàn tất trên release/production (build phải xong mới deploy).
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -17,15 +16,13 @@ jobs:
     name: Build & deploy on EC2
     runs-on: ubuntu-latest
     environment: production
-    # Deploy khi: chạy tay, HOẶC CI vừa pass trên đúng commit [tag]production.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_commit.message == '[tag]production')
+       github.event.workflow_run.head_commit.message == '[git]production')
     steps:
       - uses: actions/checkout@v4
         with:
-          # workflow_run: github.sha trỏ nhánh mặc định, nên checkout đúng commit của CI.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Resolve RELEASE_TAG

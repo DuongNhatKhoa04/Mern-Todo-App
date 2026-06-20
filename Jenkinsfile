@@ -17,7 +17,7 @@ pipeline {
             printContributedVariables: false,
             printPostContent: false,
             regexpFilterText: '$webhookRef $webhookMessage',
-            regexpFilterExpression: '^refs/heads/release/production \\[tag\\]production$'
+            regexpFilterExpression: '^refs/heads/release/production \\[jenkins\\]production$'
         )
     }
 
@@ -68,8 +68,8 @@ pipeline {
                         script: 'git log -1 --pretty=%B',
                         returnStdout: true
                     ).trim()
-                    if (commitMessage != '[tag]production') {
-                        error("Commit message must be exactly [tag]production. Got: '${commitMessage}'")
+                    if (commitMessage != '[jenkins]production') {
+                        error("Commit message must be exactly [jenkins]production. Got: '${commitMessage}'")
                     }
 
                     env.RELEASE_COMMIT = sh(
