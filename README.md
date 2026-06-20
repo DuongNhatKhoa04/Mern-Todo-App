@@ -53,11 +53,10 @@ Messages containing prefixes, suffixes, spaces, or extra lines are rejected.
 
 ## EC2 Directory
 
-The repository and runtime environment file must exist at:
+Source (git repo) and the secrets `.env` live in **separate** directories:
 
 ```text
-/home/github/mta-be/
-|-- .env
+/home/Mern-Todo-App/                  # source (DEPLOY_PATH), cloned from GitHub
 |-- docker-compose.yml                # App
 |-- docker-compose.monitoring.yml     # Monitoring
 |-- docker-compose.jenkins.yml        # Jenkins
@@ -66,19 +65,22 @@ The repository and runtime environment file must exist at:
 |-- monitoring/
 |-- jenkins/
 `-- deploy/                           # deploy.sh
+
+/home/secrets/
+`-- .env                              # ENV_FILE, created from .env.ec2.example
 ```
 
 Create `.env` from `.env.ec2.example` and protect it:
 
 ```bash
-chmod 600 /home/github/mta-be/.env
+chmod 600 /home/secrets/.env
 ```
 
 The EC2 user `github` (used by both CD flows via SSH) must:
 
 - Have SSH public-key access (matches Jenkins credential `ec2-ssh-key` and the
   GitHub Actions secret `EC2_SSH_PRIVATE_KEY`)..env.local.example
-- Have access to `/home/github/mta-be`.
+- Have access to `/home/Mern-Todo-App` and `/home/secrets/.env`.
 - Be allowed to run Docker without `sudo`.
 - Be able to fetch from GitHub.
 
@@ -112,7 +114,8 @@ Set the build parameters:
 ```text
 EC2_HOST=<EC2 public IP or DNS>
 EC2_USER=github
-DEPLOY_PATH=/home/github/mta-be
+DEPLOY_PATH=/home/Mern-Todo-App
+ENV_FILE=/home/secrets/.env
 ```
 
 GitHub webhook:
