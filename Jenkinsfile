@@ -65,11 +65,11 @@ pipeline {
                     }
 
                     def commitMessage = sh(
-                        script: "git log -1 --pretty=%B | perl -0pe 's/\\n\\z//'",
+                        script: 'git log -1 --pretty=%B',
                         returnStdout: true
-                    )
-                    if (!(commitMessage =~ /^\[tag\]production$/).matches()) {
-                        error('Commit message must be exactly [tag]production')
+                    ).trim()
+                    if (commitMessage != '[tag]production') {
+                        error("Commit message must be exactly [tag]production. Got: '${commitMessage}'")
                     }
 
                     env.RELEASE_COMMIT = sh(
