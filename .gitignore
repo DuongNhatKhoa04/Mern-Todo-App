@@ -3,6 +3,9 @@
 # dependencies
 node_modules
 /backend/.env
+/.env
+/.env.local
+/.env.ec2
 /.pnp
 .pnp.js
 # testing
@@ -23,3 +26,13 @@ yarn-debug.log*
 yarn-error.log*
 
 *.pem
+infra/ansible/inventory.ini
+infra/ansible/group_vars/capstone.yml
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/terraform.tfvars
+infra/terraform/.terraform.lock.hcl
+
+.claude
+CLAUDE.md
