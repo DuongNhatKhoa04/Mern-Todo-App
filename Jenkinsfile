@@ -29,7 +29,7 @@ pipeline {
         )
         string(
             name: 'EC2_USER',
-            defaultValue: 'github',
+            defaultValue: 'ubuntu',
             description: 'SSH user on EC2'
         )
         string(
