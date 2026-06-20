@@ -35,7 +35,13 @@ data "aws_ami" "ubuntu" {
 # Data source to get available availability zones in the region
 data "aws_availability_zones" "available" {
   state = "available"
+
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]   # ignore Local Zone
+  }
 }
+
 
 # Choose a Key Pair for SSH access
 resource "aws_key_pair" "mta" {
