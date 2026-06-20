@@ -1,0 +1,60 @@
+name: CD — Deploy to EC2
+
+# Triển khai tự động lên EC2, SONG SONG với Jenkins (không trùng trigger).
+# - Jenkins: kích hoạt khi push nhánh release/production + commit [tag]production.
+# - GitHub Actions (file này): kích hoạt khi push git TAG 'production', hoặc chạy tay.
+#
+# Yêu cầu cấu hình trong repo (Settings → Secrets/Variables → Actions):
+#   Secrets:   EC2_HOST, EC2_SSH_PRIVATE_KEY
+#   Variables: EC2_USER (mặc định github), DEPLOY_PATH (mặc định /home/Mern-Todo-App),
+#              ENV_FILE (mặc định /home/secrets/.env)
+# EC2 phải có sẵn repo tại DEPLOY_PATH và file .env tại ENV_FILE
+# (xem .claude/docs/production-ec2.md).
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "production"
+
+concurrency:
+  group: cd-ec2
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy on EC2
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve RELEASE_TAG
+        id: tag
+        run: |
+          TAG="production"
+          echo "Resolved RELEASE_TAG=$TAG"
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy on EC2 (shared deploy/deploy.sh)
+        env:
+          EC2_USER: ${{ vars.EC2_USER || 'github' }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/Mern-Todo-App' }}
+          ENV_FILE: ${{ vars.ENV_FILE || '/home/secrets/.env' }}
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/id_deploy "${EC2_USER}@${EC2_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' \
+             ENV_FILE='${ENV_FILE}' \
+             RELEASE_TAG='${RELEASE_TAG}' \
+             RELEASE_COMMIT='${RELEASE_COMMIT}' \
+             bash -s" < deploy/deploy.sh
