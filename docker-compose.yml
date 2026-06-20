@@ -66,7 +66,7 @@ services:
     restart: unless-stopped
     command: ["--collect-all", "--compatible-mode"]
     environment:
-      MONGODB_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/admin
+      MONGODB_URI: ${MONGO_URI}
     depends_on:
       mongo:
         condition: service_healthy
