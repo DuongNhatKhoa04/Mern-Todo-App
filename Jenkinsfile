@@ -24,7 +24,7 @@ pipeline {
     parameters {
         string(
             name: 'EC2_HOST',
-            defaultValue: '',
+            defaultValue: '52.221.228.172',
             description: 'EC2 public IP or DNS name'
         )
         string(
