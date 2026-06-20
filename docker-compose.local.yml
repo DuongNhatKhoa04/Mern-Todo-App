@@ -21,11 +21,11 @@ services:
     restart: unless-stopped
     environment:
       PORT: 8000
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-local-mongo-password}@mongo:27017/${MONGO_DATABASE:-todo}?authSource=admin
-      JWT_SECRET: ${JWT_SECRET:-local-jwt-secret-change-me}
-      GMAIL_USERNAME: ${GMAIL_USERNAME:-}
-      GMAIL_PASSWORD: ${GMAIL_PASSWORD:-}
-      MAIL_FROM: ${MAIL_FROM:-}
+      MONGO_URI: ${MONGO_URI}
+      JWT_SECRET: ${JWT_SECRET}
+      GMAIL_USERNAME: ${GMAIL_USERNAME}
+      GMAIL_PASSWORD: ${GMAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
     ports:
       - "8000:8000"
@@ -46,9 +46,9 @@ services:
     container_name: mern-mongo-local
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-local-mongo-password}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-todo}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
     ports:
       - "27017:27017"
     volumes:
@@ -135,34 +135,6 @@ services:
     networks:
       - mern-local
 
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
-    container_name: cadvisor-local
-    restart: unless-stopped
-    privileged: true
-    devices:
-      - /dev/kmsg
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-    networks:
-      - mern-local
-
-  jenkins:
-    image: jenkins/jenkins:lts
-    restart: unless-stopped
-    user: root
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    volumes:
-      - jenkins-home-local:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - mern-local
-
 networks:
   mern-local:
     name: mern-network-local
@@ -174,5 +146,3 @@ volumes:
     name: prometheus-data-local
   grafana-data-local:
     name: grafana-data-local
-  jenkins-home-local:
-    name: jenkins-home-local

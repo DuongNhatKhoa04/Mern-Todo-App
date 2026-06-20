@@ -1,0 +1,83 @@
+name: mern-todo
+
+services:
+  frontend:
+    image: mta-frontend:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ./frontend
+    container_name: mern-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - mern
+
+  backend:
+    image: mta-backend:${RELEASE_TAG:?RELEASE_TAG is required}
+    build:
+      context: ./backend
+    container_name: mern-backend
+    restart: unless-stopped
+    env_file:
+      - ${BACKEND_ENV_FILE:-/home/secrets/.env}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - mern
+
+  mongo:
+    image: mongo:7.0
+    container_name: mern-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-todo}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - mern
+
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.40.0
+    container_name: mongodb-exporter
+    restart: unless-stopped
+    command: ["--collect-all", "--compatible-mode"]
+    environment:
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/admin
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - mern
+
+networks:
+  mern:
+    name: mern-network
+    external: true
+
+volumes:
+  mongo-data:
+    name: mongo-data
